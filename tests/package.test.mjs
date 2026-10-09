@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { JSDOM } from 'jsdom';
-import { createPlayer, csPlayer, loadYouTubeAPI } from '../dist/index.js';
+import { createPlayer } from '../dist/index.js';
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CSPlayer } from '../dist/react.js';
@@ -16,14 +16,15 @@ function setup({ api = true, autoReady = true } = {}) {
     Player: function(id, options) {
       this.options = options;
       this.playCalls = 0;
-      this.getCurrentTime = () => 20;
+      this.time = 20;
+      this.getCurrentTime = () => this.time;
       this.getDuration = () => 100;
       this.getVideoData = () => ({ title: 'Test video' });
       this.getVideoLoadedFraction = () => .5;
       this.isMuted = () => false;
       this.unMute = () => {};
       this.unloadModule = () => {};
-      this.seekTo = () => {};
+      this.seekTo = time => { this.time = time; };
       this.getAvailableQualityLevels = () => [];
       this.setPlaybackRate = () => { this.rateCalls = (this.rateCalls || 0) + 1; };
       this.loadVideoById = id => { this.videoId = id; };
@@ -66,11 +67,9 @@ test('independent players, controls, change video, idempotent destroy and remoun
     assert.equal(env.players[1].playCalls, 0);
     one.changeVideo('dQw4w9WgXcQ');
     assert.equal(env.players[0].videoId, 'dQw4w9WgXcQ');
-    // Reopening settings must not duplicate handlers.
-    const settings = document.querySelector('#one .settingsBtn');
-    settings.click(); settings.click(); settings.click();
-    const rate = document.querySelector('#one .csPlayer-settings-box input');
-    Object.defineProperty(rate.parentElement, 'innerText', { value: '0.75x' });
+    one.setControls('standard');
+    const rate = document.querySelector('#one [aria-label="Playback speed"]');
+    rate.value = '0.75';
     rate.dispatchEvent(new window.Event('change'));
     assert.equal(env.players[0].rateCalls, 1);
     one.destroy(); one.destroy(); two.destroy();
@@ -123,7 +122,7 @@ test('destroy between iframe construction and onReady ignores late events', asyn
     await assert.rejects(one.ready, /destroyed/);
     assert.doesNotThrow(() => env.players[0].ready());
     assert.doesNotThrow(() => env.players[0].options.events.onStateChange({ data: 1 }));
-    assert.equal(Object.keys(csPlayer.csPlayers).length, 0);
+    assert.equal(document.querySelectorAll('.csPlayer').length, 0);
   } finally { env.close(); }
 });
 
@@ -155,7 +154,7 @@ test('React StrictMode, callback updates, prop changes and unmount clean up', as
     assert.equal(document.querySelectorAll('.csPlayer.theme-plyr').length, 1);
     assert.equal(ready, 2);
     await act(async () => root.unmount());
-    assert.equal(Object.keys(csPlayer.csPlayers).length, 0);
+    assert.equal(document.querySelectorAll('.csPlayer').length, 0);
     assert.ok(env.players.every(p => p.destroyed));
   } finally { env.close(); delete globalThis.IS_REACT_ACT_ENVIRONMENT; }
 });
@@ -182,51 +181,247 @@ test('post-readiness errors reach the consumer callback', async () => {
   } finally { env.close(); }
 });
 
-test('pause hides the controller and restores only the central play affordance', async () => {
+test('minimal mode pauses on a single surface click and resumes with the same button', async () => {
   const env = setup();
   try {
     const player = createPlayer('#one', options);
     await player.ready;
-    player.play();
-    const controls = document.querySelector('#one .csPlayer-controls-box');
-    controls.classList.add('csPlayer-controls-open');
-    document.querySelector('#one .settingsBtn').click();
-    player.pause();
-    const overlay = document.querySelector('#one .csPlayer-container span');
-    assert.equal(controls.style.display, 'none');
-    assert.equal(controls.classList.contains('csPlayer-controls-open'), false);
-    assert.equal(document.querySelector('#one .csPlayer-settings-box').style.display, 'none');
-    assert.equal(overlay.style.display, 'flex');
-    assert.equal(overlay.style.backgroundImage, 'none');
-    assert.equal(overlay.style.backgroundColor, 'transparent');
-    overlay.querySelector('i').click();
+    const surface = document.querySelector('#one .csp-surface');
+    surface.click();
     assert.equal(player.getPlayerState(), 'playing');
-    assert.equal(overlay.style.display, 'none');
-    assert.equal(controls.style.display, 'flex');
+    surface.click();
+    assert.equal(player.getPlayerState(), 'paused');
+    assert.equal(document.querySelector('#one .csp-toolbar').hidden, true);
+    assert.equal(document.querySelector('#one .csp-center').hidden, false);
+    surface.click();
+    assert.equal(player.getPlayerState(), 'playing');
     player.destroy();
   } finally { env.close(); }
 });
 
-test('one surface click pauses with controls hidden or visible; control clicks do not bubble into pause', async () => {
+test('live control changes retain playback and do not construct another iframe', async () => {
   const env = setup();
   try {
     const player = createPlayer('#one', options);
     await player.ready;
-    const controls = document.querySelector('#one .csPlayer-controls-box');
-    for (const open of [false, true]) {
-      player.play();
-      controls.classList.toggle('csPlayer-controls-open', open);
-      controls.click();
-      assert.equal(player.getPlayerState(), 'paused');
-      assert.equal(controls.style.display, 'none');
-    }
     player.play();
-    controls.dispatchEvent(new window.MouseEvent('pointermove', { bubbles: true }));
-    assert.ok(controls.classList.contains('csPlayer-controls-open'));
-    document.querySelector('#one .settingsBtn').click();
+    for (const visibility of ['always', 'auto', 'hidden']) {
+      player.setControls({ visibility, progress: false, time: false, skip: true });
+      assert.equal(document.querySelector('#one .csp-seek').hidden, true);
+      assert.equal(document.querySelector('#one .csp-time').hidden, true);
+      assert.equal(document.querySelector('#one [data-control="skip"]').hidden, false);
+      assert.equal(player.getPlayerState(), 'playing');
+      assert.equal(env.players.length, 1);
+    }
+    assert.throws(() => player.setControls({ visibility: 'sometimes' }), /visibility/);
+    assert.throws(() => player.setControls({ time: 'yes' }), /boolean/);
+    assert.throws(() => player.setControls({ hideDelay: -1 }), /hideDelay/);
+    player.destroy();
+  } finally { env.close(); }
+});
+
+test('standard controls stay visible when paused and controls never trigger surface pause', async () => {
+  const env = setup();
+  try {
+    const player = createPlayer('#one', { ...options, controls: 'standard' });
+    await player.ready;
+    assert.equal(document.querySelector('#one .csp-toolbar').hidden, false);
+    player.play();
+    const speed = document.querySelector('#one .csp-speed');
+    speed.click(); speed.value = '1.5'; speed.dispatchEvent(new window.Event('change'));
     assert.equal(player.getPlayerState(), 'playing');
-    document.querySelector('#one .csPlayer-play-pause-btn').click();
+    document.querySelector('#one [data-control="playPause"]').click();
+    assert.equal(player.getPlayerState(), 'paused');
+    assert.equal(document.querySelector('#one .csp-toolbar').hidden, false);
+    player.setControls({ showWhenPaused: false });
+    assert.equal(document.querySelector('#one .csp-toolbar').hidden, true);
+    player.destroy();
+  } finally { env.close(); }
+});
+
+test('seek clamps to duration, keeps pause intent and drag is not overwritten by timer updates', async () => {
+  const env = setup();
+  try {
+    const player = createPlayer('#one', { ...options, controls: 'standard' });
+    await player.ready;
+    player.seekTo(-10); assert.equal(player.getCurrentTime(), 0);
+    player.seekTo(200); assert.equal(player.getCurrentTime(), 100);
+    assert.equal(player.getPlayerState(), 'paused');
+    const seek = document.querySelector('#one .csp-seek');
+    seek.value = '45'; seek.dispatchEvent(new window.Event('input'));
+    await new Promise(resolve => setTimeout(resolve, 300));
+    assert.equal(seek.value, '45');
+    seek.dispatchEvent(new window.Event('change'));
+    assert.equal(player.getCurrentTime(), 45);
     assert.equal(player.getPlayerState(), 'paused');
     player.destroy();
   } finally { env.close(); }
+});
+
+test('auto-hide expires, mouse movement reveals, touch keeps controls reachable', async () => {
+  const env = setup();
+  try {
+    const player = createPlayer('#one', { ...options, controls: { visibility: 'auto', hideDelay: 500 } });
+    await player.ready; player.play();
+    const toolbar = document.querySelector('#one .csp-toolbar');
+    await new Promise(resolve => setTimeout(resolve, 550));
+    assert.equal(toolbar.hidden, true);
+    const root = document.querySelector('#one .csPlayer');
+    root.dispatchEvent(new window.MouseEvent('pointermove', { bubbles: true }));
+    assert.equal(toolbar.hidden, false);
+    const touch = new window.Event('pointerdown', { bubbles: true });
+    Object.defineProperty(touch, 'pointerType', { value: 'touch' });
+    root.dispatchEvent(touch);
+    await new Promise(resolve => setTimeout(resolve, 550));
+    assert.equal(toolbar.hidden, false);
+    player.destroy();
+  } finally { env.close(); }
+});
+
+test('buffering can be paused; autoplay blocking, ending, looping and errors have explicit states', async () => {
+  const env = setup();
+  try {
+    const states = [];
+    const player = createPlayer('#one', { ...options, onStateChange: state => states.push(state) });
+    await player.ready; player.play();
+    const events = env.players[0].options.events;
+    events.onStateChange({ data: 3 });
+    document.querySelector('#one .csp-surface').click();
+    assert.equal(player.getPlayerState(), 'paused');
+    player.play(); events.onAutoplayBlocked();
+    assert.equal(player.getPlayerState(), 'paused');
+    events.onStateChange({ data: 0 });
+    assert.equal(player.getPlayerState(), 'ended');
+    assert.equal(document.querySelector('#one .csp-surface').getAttribute('aria-label'), 'Replay video');
+    events.onError({ data: 150 });
+    assert.equal(player.getPlayerState(), 'error');
+    assert.equal(document.querySelector('#one [role="alert"]').hidden, false);
+    assert.ok(states.includes('buffering'));
+    player.destroy();
+    const loop = createPlayer('#one', { ...options, loop: true });
+    await loop.ready;
+    env.players[1].options.events.onStateChange({ data: 0 });
+    assert.equal(loop.getCurrentTime(), 0);
+    assert.equal(loop.getPlayerState(), 'playing');
+    loop.destroy();
+  } finally { env.close(); }
+});
+
+test('zero duration disables seek; unsupported fullscreen is hidden', async () => {
+  const env = setup();
+  try {
+    const player = createPlayer('#one', { ...options, controls: 'standard' });
+    await player.ready;
+    env.players[0].getDuration = () => 0;
+    player.setControls('standard');
+    assert.equal(document.querySelector('#one .csp-seek').disabled, true);
+    assert.equal(document.querySelector('#one [data-control="fullscreen"]').hidden, true);
+    player.destroy();
+  } finally { env.close(); }
+});
+
+test('React controls prop updates retain the existing player', async () => {
+  const env = setup();
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  const root = createRoot(document.querySelector('#one'));
+  try {
+    await act(async () => { root.render(React.createElement(CSPlayer, { ...options, controls: 'minimal' })); await tick(); });
+    const original = env.players[0];
+    await act(async () => { root.render(React.createElement(CSPlayer, { ...options, controls: { visibility: 'always', time: false } })); await tick(); });
+    assert.equal(env.players.length, 1);
+    assert.equal(original.destroyed, undefined);
+    assert.equal(document.querySelector('.csp-time').hidden, true);
+    assert.equal(document.querySelector('.csp-toolbar').hidden, false);
+    await act(async () => root.unmount());
+    assert.equal(original.destroyed, true);
+  } finally { env.close(); delete globalThis.IS_REACT_ACT_ENVIRONMENT; }
+});
+
+test('modern readiness timeout cleans the iframe and permits mounting again', async t => {
+  const env = setup({ autoReady: false });
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
+  try {
+    const player = createPlayer('#one', options);
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    const rejected = assert.rejects(player.ready, /did not become ready/);
+    t.mock.timers.tick(15000);
+    await rejected;
+    assert.equal(env.players[0].destroyed, true);
+    assert.equal(document.querySelector('#one').childNodes.length, 0);
+    const retry = createPlayer('#one', options);
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    env.players[1].ready();
+    await retry.ready; retry.destroy();
+  } finally { t.mock.timers.reset(); env.close(); }
+});
+
+test('destroy cancels progress and visibility work; late errors do not notify consumers', async t => {
+  const env = setup();
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
+  try {
+    let errors = 0;
+    const player = createPlayer('#one', { ...options, controls: { visibility: 'auto' }, onError: () => errors++ });
+    await player.ready; player.play(); player.destroy();
+    env.players[0].getCurrentTime = () => { throw new Error('timer survived destroy'); };
+    t.mock.timers.tick(30000);
+    env.players[0].options.events.onError({ data: 100 });
+    assert.equal(errors, 0);
+  } finally { t.mock.timers.reset(); env.close(); }
+});
+
+test('pending play survives intermediate cued events so a buffering click still pauses', async () => {
+  const env = setup();
+  try {
+    const player = createPlayer('#one', options);
+    await player.ready;
+    env.players[0].playVideo = () => {};
+    player.play();
+    env.players[0].options.events.onStateChange({ data: -1 });
+    env.players[0].options.events.onStateChange({ data: 3 });
+    const surface = document.querySelector('.csp-surface');
+    assert.equal(surface.getAttribute('aria-label'), 'Pause video');
+    surface.click();
+    assert.equal(player.getPlayerState(), 'paused');
+    player.destroy();
+  } finally { env.close(); }
+});
+
+test('all 64 individual-control combinations retain playback and respect visibility on pause', async () => {
+  const env = setup();
+  try {
+    Object.defineProperty(document, 'fullscreenEnabled', { value: true });
+    const player = createPlayer('#one', options);
+    await player.ready;
+    const keys = ['progress', 'time', 'playPause', 'skip', 'speed', 'fullscreen'];
+    for (let mask = 0; mask < 64; mask++) {
+      const config = Object.fromEntries(keys.map((key, i) => [key, Boolean(mask & (1 << i))]));
+      player.play();
+      player.setControls({ ...config, visibility: 'always', showWhenPaused: true });
+      assert.equal(player.getPlayerState(), 'playing');
+      assert.equal(env.players.length, 1);
+      player.pause();
+      for (const key of keys) {
+        for (const element of document.querySelectorAll(`[data-control="${key}"]`)) assert.equal(element.hidden, !config[key], `${mask}: ${key}`);
+      }
+      assert.equal(document.querySelector('.csp-toolbar').hidden, mask === 0);
+    }
+    player.destroy();
+  } finally { env.close(); }
+});
+
+test('returning from keyboard to mouse input releases the auto-hide focus lock', async t => {
+  const env = setup();
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
+  try {
+    const player = createPlayer('#one', { ...options, controls: { visibility: 'auto', hideDelay: 500 } });
+    await player.ready; player.play();
+    const surface = document.querySelector('.csp-surface');
+    surface.focus();
+    t.mock.timers.tick(1000);
+    assert.equal(document.querySelector('.csp-toolbar').hidden, false);
+    surface.dispatchEvent(new window.Event('pointerdown', { bubbles: true }));
+    t.mock.timers.tick(1000);
+    assert.equal(document.querySelector('.csp-toolbar').hidden, true);
+    player.destroy();
+  } finally { t.mock.timers.reset(); env.close(); }
 });

@@ -1,6 +1,6 @@
 {
   "name": "@jschof1/csplayer",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Reusable csPlayer YouTube player for JavaScript, React and plain HTML",
   "type": "module",
   "main": "./dist/index.cjs",

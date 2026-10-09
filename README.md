@@ -1,7 +1,7 @@
 # csPlayer
 
 A reusable YouTube player for **JavaScript, React and plain HTML**. The original
-player is now packaged with scoped styles, TypeScript definitions, automatic
+player is now packaged with configurable controls, scoped styles, TypeScript definitions, automatic
 YouTube API loading and safe cleanup. No runtime dependencies for the JavaScript
 or HTML versions. React is an optional peer dependency.
 
@@ -17,12 +17,12 @@ npm pack
 Then, from your other project's directory:
 
 ```sh
-npm install /Users/jack/Documents/GitHub/csPlayer/jschof1-csplayer-1.0.2.tgz
+npm install /Users/jack/Documents/GitHub/csPlayer/jschof1-csplayer-1.1.0.tgz
 ```
 
 This installs **only the built package**, not the repository, demos or development
 tools. Keep the tarball in the consuming project's `vendor/` directory and install
-`./vendor/jschof1-csplayer-1.0.2.tgz` if teammates or CI need to reproduce the install.
+`./vendor/jschof1-csplayer-1.1.0.tgz` if teammates or CI need to reproduce the install.
 The package is not published on the npm registry.
 
 ### React / Next.js / Vite
@@ -36,6 +36,7 @@ export default function Video() {
     <CSPlayer
       videoId="M7lc1UVf-VE"
       theme="plyr"
+      controls={{ visibility: 'always', progress: true, time: true }}
       onReady={player => console.log('Ready', player.getDuration())}
       onError={error => console.error(error)}
     />
@@ -43,7 +44,8 @@ export default function Video() {
 }
 ```
 
-The component cleans up on unmount, including React Strict Mode. Changing video,
+The component cleans up on unmount, including React Strict Mode. Changes to the
+`controls` prop apply live without resetting the video. Changing video,
 theme, thumbnail or loop remounts the player and resets playback. Callback changes
 do not remount it. `className`, `style`, `id` and other div attributes apply to its
 outer wrapper. Initialization and later YouTube errors display an inline alert and
@@ -64,6 +66,7 @@ const player = createPlayer('#player', {
   thumbnail: true,
   theme: 'default',
   loop: false,
+  controls: { visibility: 'always', progress: true, time: true },
   onError: error => console.error(error), // playback errors after readiness
 });
 
@@ -88,6 +91,8 @@ framework's mounted/effect hook and call `destroy()` from its cleanup hook.
 | `thumbnail` | `true` | YouTube thumbnail, `false`, or custom image URL |
 | `theme` | `'default'` | `'default'`, `'youtube'` or `'plyr'` |
 | `loop` | `false` | Repeat when playback ends |
+| `controls` | `'minimal'` | Preset or individual controls; see below |
+| `onStateChange` | none | Receives `cued`, `playing`, `paused`, `buffering`, `ended`, `error` |
 | `onError` | none | Callback for YouTube errors after readiness |
 
 `player.ready` resolves to the player. After readiness, use `play()`, `pause()`,
@@ -95,6 +100,51 @@ framework's mounted/effect hook and call `destroy()` from its cleanup hook.
 `getPlayerState()`. Times are seconds. `changeVideo()` loads and starts the new
 video; invoke it from a user action. `destroy()` works before readiness and is
 safe to call more than once. Destroying a pending mount rejects `ready`.
+
+### Choose exactly which controls appear
+
+```js
+const player = createPlayer('#player', {
+  videoId: 'M7lc1UVf-VE',
+  controls: {
+    visibility: 'always', // 'always', 'auto' or 'hidden'
+    progress: true,       // seek slider
+    time: true,           // elapsed and total time
+    playPause: true,      // button in the control bar
+    skip: false,          // back / forward 10 seconds
+    speed: false,         // playback speed selector
+    fullscreen: true,     // omitted when the browser does not support it
+    showWhenPaused: true,
+    hideDelay: 2500,      // milliseconds, for auto mode; 500–30000
+  },
+});
+
+// Apply a replacement configuration without pausing or rebuilding the iframe:
+player.setControls({ visibility: 'always', progress: true, time: true });
+player.setControls('minimal'); // central play button; no bar
+player.setControls('standard'); // always-visible bar with timer, seek, speed, fullscreen
+```
+
+Object values merge with these defaults: visibility `auto`; progress, time,
+playPause, speed, fullscreen and showWhenPaused `true`; skip `false`; hideDelay
+`2500`. Each `setControls` call replaces the previous configuration, using these
+defaults for omitted keys. Unknown keys and invalid values throw without modifying
+the current configuration. Controls can be configured before `ready` resolves.
+
+- Click the video surface once to play/pause. Control clicks never also toggle playback.
+- Auto mode hides the bar after inactivity **while playing**. Moving the mouse or
+  keyboard focus reveals it. Focused controls stay visible for keyboard use.
+- Touch interaction keeps selected controls visible in auto mode, so seeking and
+  settings do not depend on hover or require an extra tap.
+- `showWhenPaused: false` hides the bar when cued, paused or ended, independently
+  of whether it is always-visible or automatic during playback.
+- The center play button remains available when the bar is hidden. Turning off
+  every individual control removes the bar entirely.
+- `seekTo(seconds)` clamps to the video's duration and preserves paused playback.
+  Dragging the slider previews time; releasing commits the seek.
+
+The local playground provides Minimal, Timer & progress and Full presets,
+individual checkboxes and a generated configuration to copy into another project.
 
 ### Plain HTML, without build tools
 
@@ -133,8 +183,11 @@ bundle; the original demo still uses the legacy source files.
 Styles and icon classes are scoped to `.csPlayer`; they do not reset the host
 page. The original themes and wide iframe crop are retained, keeping YouTube chrome
 outside the visible player. Pausing hides the control bar and shows only the
-central play button over the paused frame. A single click on the playing video
-pauses immediately; mouse movement or keyboard focus reveals the controls.
+central play button over the paused frame in minimal mode. In other modes you
+choose whether the control bar stays visible when paused. A single click on the
+playing video pauses immediately. Native buttons, a range slider and a speed
+selector provide keyboard interaction; off-screen iframe controls are excluded
+from the tab order.
 Override the CSS variables on your player:
 
 ```css
@@ -168,7 +221,8 @@ See `src/csPlayer.css` for all variables. Use a container large enough for YouTu
 
 ## Maintaining the package
 
-- `src/csPlayer.js`: original ID-based playback engine, with lifecycle fixes.
+- `src/csPlayer.js`: legacy ID-based playback engine, preserved for old integrations.
+- `src/player.js`: instance player, centralized state rendering and control visibility.
 - `src/index.js`: reusable instance API and shared YouTube loader.
 - `src/react.js`: optional React lifecycle adapter.
 - `src/csPlayer.css`, `src/icons/csplayer-icons.*`: scoped styles and seven-icon font.

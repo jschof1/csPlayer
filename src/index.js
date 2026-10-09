@@ -39,40 +39,52 @@ function createPlayer(target, options = {}) {
   const host = typeof target === 'string' ? document.querySelector(target) : target;
   if (!host || host.nodeType !== 1 || !host.isConnected) throw new Error('Player target must be a connected HTML element.');
   if (mounts.has(host) || host.childNodes.length) throw new Error('Player target must be empty and not already mounted.');
-  const { videoId, thumbnail = true, theme = 'default', loop = false, onError } = options;
+  const { videoId, thumbnail = true, theme = 'default', loop = false, onError, onStateChange } = options;
   if (!/^[A-Za-z0-9_-]{11}$/.test(videoId || '')) throw new Error('videoId must be an 11-character YouTube video ID.');
   if (!['default', 'youtube', 'plyr'].includes(theme)) throw new Error('Unknown csPlayer theme.');
   if (typeof thumbnail !== 'boolean' && typeof thumbnail !== 'string') throw new Error('thumbnail must be a boolean or URL.');
   if (onError !== undefined && typeof onError !== 'function') throw new Error('onError must be a function.');
   if (typeof loop !== 'boolean') throw new Error('loop must be a boolean.');
+  normalizeControls(options.controls);
+  if (onStateChange !== undefined && typeof onStateChange !== 'function') throw new Error('onStateChange must be a function.');
   const node = document.createElement('div');
   do { node.id = `csplayer-mount-${++nextId}`; } while (document.getElementById(node.id));
   host.append(node);
   let destroyed = false;
+  let engine;
+  let controlOptions = options.controls;
   let rejectCancelled;
   const cancelled = new Promise((_, reject) => { rejectCancelled = reject; });
+  let readyDone = false;
   const assertReady = () => {
     if (destroyed) throw new Error('Player has been destroyed.');
-    if (!csPlayer.csPlayers[node.id]?.initialized) throw new Error('Await player.ready before using playback methods.');
+    if (!engine || !readyDone) throw new Error('Await player.ready before using playback methods.');
   };
   const player = {
     ready: null,
-    play() { assertReady(); csPlayer.play(node.id); },
-    pause() { assertReady(); csPlayer.pause(node.id); },
+    play() { assertReady(); engine.play(); },
+    pause() { assertReady(); engine.pause(); },
     changeVideo(id) {
       assertReady();
       if (!/^[A-Za-z0-9_-]{11}$/.test(id)) throw new Error('Invalid YouTube video ID.');
-      csPlayer.changeVideo(node.id, id);
+      engine.changeVideo(id);
     },
-    getDuration() { assertReady(); return csPlayer.getDuration(node.id); },
-    getCurrentTime() { assertReady(); return csPlayer.getCurrentTime(node.id); },
-    getVideoTitle() { assertReady(); return csPlayer.getVideoTitle(node.id); },
-    getPlayerState() { assertReady(); return csPlayer.getPlayerState(node.id); },
+    getDuration() { assertReady(); return engine.getDuration(); },
+    getCurrentTime() { assertReady(); return engine.getCurrentTime(); },
+    getVideoTitle() { assertReady(); return engine.getVideoTitle(); },
+    getPlayerState() { assertReady(); return engine.getPlayerState(); },
+    seekTo(seconds) { assertReady(); engine.seekTo(seconds); },
+    setControls(value) {
+      if (destroyed) throw new Error('Player has been destroyed.');
+      normalizeControls(value);
+      controlOptions = value;
+      engine?.setControls(value);
+    },
     destroy() {
       if (destroyed) return;
       destroyed = true;
       rejectCancelled(new Error('Player destroyed before readiness.'));
-      if (csPlayer.csPlayers[node.id]) csPlayer.destroy(node.id);
+      engine?.destroy();
       node.remove();
       mounts.delete(host);
     },
@@ -81,10 +93,11 @@ function createPlayer(target, options = {}) {
   player.ready = Promise.race([
     loadYouTubeAPI().then(() => {
       if (destroyed) throw new Error('Player destroyed before readiness.');
-      return csPlayer.init(node.id, { defaultId: videoId, thumbnail, theme, loop, onError });
+      engine = mountPlayer(node, { videoId, thumbnail, theme, loop, onError, onStateChange, controls: controlOptions });
+      return engine.ready;
     }),
     cancelled,
-  ]).then(() => player).catch(error => { player.destroy(); throw error; });
+  ]).then(() => { readyDone = true; return player; }).catch(error => { player.destroy(); throw error; });
   // A framework can unmount before it attaches a readiness handler.
   player.ready.catch(() => {});
   return player;

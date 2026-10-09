@@ -3,7 +3,7 @@ import { readFile, writeFile, mkdir, copyFile, rm } from 'node:fs/promises';
 await rm('dist', { recursive: true, force: true });
 await mkdir('dist/icons', { recursive: true });
 const core = await readFile('src/csPlayer.js', 'utf8');
-const api = await readFile('src/index.js', 'utf8');
+const api = (await readFile('src/player.js', 'utf8')) + '\n' + (await readFile('src/index.js', 'utf8'));
 const exports = 'export { createPlayer, loadYouTubeAPI, csPlayer };';
 await writeFile('dist/index.js', `${core}\n${api}\n${exports}\n`);
 await writeFile('dist/index.cjs', `'use strict';\n${core}\n${api}\nmodule.exports = { createPlayer, loadYouTubeAPI, csPlayer };\n`);

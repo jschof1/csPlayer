@@ -68,3 +68,37 @@ reveals it. Settings and transport clicks do not bubble into surface pause.
 All 19 regression checks pass. In the in-app browser, a single surface click
 changed real YouTube playback from playing to paused at 14 seconds, with only the
 central play affordance remaining.
+
+## 1.1.0 configurable interaction layer
+
+The instance API and React component now use `src/player.js`, with one state
+renderer, one visibility timer, native control elements and separate video/control
+click targets. The old ID-based script remains available and regression-tested.
+
+`npm run check`: 30 tests and TypeScript consumer checks pass. The suite includes
+all 64 combinations of the six individual control switches, live configuration
+changes without new iframes, React controls updates, paused seeking, drag preview,
+zero duration, pointer/keyboard focus transitions, auto-hide timing, touch
+visibility, buffering/cued races, autoplay blocking, ended/replay/loop states,
+errors, readiness timeouts and cleanup after destruction.
+
+Real in-app Chromium checks: initial playback, one-click surface pause, keyboard
+Space play/pause, changing Timer to Full during playback without resetting time,
+seeking while paused (44 to 46 seconds), changing playback speed, fullscreen
+entry/exit, and automatic visibility. Tested the full layout at measured CSS
+viewport widths of 320 and 390 pixels: no horizontal overflow and no overlap
+between the central play button and the control bar. Captions are suppressed as
+in the original custom player, and YouTube's hidden iframe UI is removed from the
+keyboard tab order. The original wide iframe crop is retained.
+
+The tarball was installed into the separate React/Vite consumer and its production
+build passed. This is not a claim of testing on physical phones, Safari, Firefox,
+or a full Next.js application. Touch visibility is covered by simulated pointer
+regression tests; the mobile browser checks above validate layout at narrow widths.
+
+Final installed-package browser check: served the React consumer's production
+build on port 8002. Switching controls from timer to minimal and back left exactly
+one iframe and one readiness callback, while playback advanced to 12 seconds.
+The isolated playground's auto-hide check showed state `playing`, time 14 seconds,
+and the toolbar hidden; a single surface click then changed state to `paused` and
+showed the bar. Temporary browser test tab closed after verification.

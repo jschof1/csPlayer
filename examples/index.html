@@ -19,33 +19,50 @@
     label { display: inline-flex; flex-direction: column; gap: 5px; }
     form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 26px 0; }
     #status { color: #b6ec78; } pre { overflow: auto; background: #1c2028; padding: 18px; border-radius: 8px; font-size: 14px; }
+    fieldset { border: 1px solid #404550; border-radius: 10px; padding: 18px; margin: 24px 0; }
+    legend { padding: 0 8px; }
+    .options-row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .toggles { display: flex; flex-wrap: wrap; gap: 14px 22px; margin-top: 18px; }
+    .toggles label { flex-direction: row; align-items: center; cursor: pointer; }
+    .toggles input { width: 18px; height: 18px; accent-color: #b6ec78; }
+    .hint { font-size: 13px; color: #aeb4c0; margin-bottom: 0; }
     a { color: #b6ec78; }
   </style>
 </head>
 <body>
 <main>
   <span class="eyebrow">csPlayer / reusable component</span>
-  <h1>One player. Any project.</h1>
-  <p class="intro">The original player, packaged for JavaScript, React and plain HTML. Try playback, switch themes, or remove and remount the component.</p>
+  <h1>Make the player yours.</h1>
+  <p class="intro">Choose what stays visible. These controls update the player immediately, without restarting your video. Click the video once to play or pause.</p>
   <form id="setup">
     <label>YouTube video ID<input id="video-id" value="M7lc1UVf-VE" required pattern="[A-Za-z0-9_-]{11}"></label>
     <label>Theme<select id="theme"><option>default</option><option>youtube</option><option>plyr</option></select></label>
     <button>Mount player</button>
   </form>
   <div id="player"></div>
+  <fieldset id="customize">
+    <legend>Player controls · changes apply live</legend>
+    <div class="options-row">
+      <label>Preset<select id="preset"><option value="minimal">Minimal · play only</option><option value="timer" selected>Timer &amp; progress</option><option value="full">Full controls</option><option value="custom">Custom</option></select></label>
+      <label>Visibility<select id="visibility"><option value="always" selected>Always visible</option><option value="auto">Auto-hide while playing</option><option value="hidden">Hidden</option></select></label>
+    </div>
+    <div class="toggles">
+      <label><input type="checkbox" id="progress" checked>Progress bar</label>
+      <label><input type="checkbox" id="time" checked>Elapsed / total time</label>
+      <label><input type="checkbox" id="playPause" checked>Play / pause button</label>
+      <label><input type="checkbox" id="skip">Skip 10 seconds</label>
+      <label><input type="checkbox" id="speed">Playback speed</label>
+      <label><input type="checkbox" id="fullscreen">Fullscreen</label>
+      <label><input type="checkbox" id="showWhenPaused" checked>Keep controls when paused</label>
+    </div>
+    <p class="hint">Auto-hide: move the mouse or focus the player to reveal controls. On touch, selected controls stay visible.</p>
+  </fieldset>
   <div class="actions">
     <button id="play" disabled>Play</button><button id="pause" disabled>Pause</button><button id="info" disabled>Read playback status</button><button id="destroy">Remove player</button>
   </div>
   <p id="status" role="status">Loading YouTube…</p>
-  <pre><code>import { createPlayer } from '@jschof1/csplayer';
-import '@jschof1/csplayer/style.css';
-
-const player = createPlayer('#player', {
-  videoId: 'M7lc1UVf-VE', theme: 'default'
-});
-await player.ready;
-// When leaving the page:
-// player.destroy();</code></pre>
+  <h2>Your configuration</h2>
+  <pre><code id="config-code"></code></pre>
   <p><a href="../examples/plain.html">Plain HTML example</a> · <a href="../demo/demo.html">Original demo</a></p>
 </main>
 <script type="module">
@@ -53,20 +70,44 @@ import { createPlayer } from '../dist/index.js';
 let player;
 const status = document.querySelector('#status');
 const buttons = ['play', 'pause', 'info'].map(id => document.getElementById(id));
+const flags = ['progress', 'time', 'playPause', 'skip', 'speed', 'fullscreen', 'showWhenPaused'];
+function controls() {
+  return { visibility: document.querySelector('#visibility').value, ...Object.fromEntries(flags.map(key => [key, document.getElementById(key).checked])) };
+}
+function showCode() {
+  document.querySelector('#config-code').textContent = "import { createPlayer } from '@jschof1/csplayer';\nimport '@jschof1/csplayer/style.css';\n\nconst player = createPlayer('#player', " + JSON.stringify({ videoId: document.querySelector('#video-id').value, theme: document.querySelector('#theme').value, controls: controls() }, null, 2) + ");\nawait player.ready;\n\n// Later, change controls without restarting:\n// player.setControls({ visibility: 'always', time: true });\n// On unmount: player.destroy();";
+}
+function applyControls() { player?.setControls(controls()); showCode(); }
 function mount() {
   player?.destroy();
   buttons.forEach(button => button.disabled = true);
   status.textContent = 'Loading YouTube…';
+  showCode();
   try {
-    const current = player = createPlayer('#player', { videoId: document.querySelector('#video-id').value, theme: document.querySelector('#theme').value });
+    const current = player = createPlayer('#player', {
+      videoId: document.querySelector('#video-id').value,
+      theme: document.querySelector('#theme').value,
+      controls: controls(),
+      onStateChange: state => { if (player === current) status.textContent = state === 'cued' ? 'Ready. Click the video to play.' : state.charAt(0).toUpperCase() + state.slice(1); },
+      onError: error => { if (player === current) status.textContent = error.message; },
+    });
     current.ready.then(() => {
       if (player !== current) return;
       buttons.forEach(button => button.disabled = false);
-      status.textContent = 'Ready. Press Play to start.';
     }, error => { if (player === current) status.textContent = error.message; });
-  } catch (error) { status.textContent = error.message; }
+  } catch (error) { player = null; status.textContent = error.message; }
 }
 document.querySelector('#setup').onsubmit = event => { event.preventDefault(); mount(); };
+document.querySelector('#preset').onchange = event => {
+  const preset = event.target.value;
+  if (preset === 'custom') return;
+  document.querySelector('#visibility').value = preset === 'minimal' ? 'hidden' : 'always';
+  flags.forEach(key => { document.getElementById(key).checked = preset === 'full' || ['progress', 'time', 'playPause', 'showWhenPaused'].includes(key); });
+  applyControls();
+};
+document.querySelector('#customize').addEventListener('change', event => {
+  if (event.target.id !== 'preset') { document.querySelector('#preset').value = 'custom'; applyControls(); }
+});
 document.querySelector('#play').onclick = () => player.play();
 document.querySelector('#pause').onclick = () => player.pause();
 document.querySelector('#info').onclick = () => { status.textContent = `${player.getPlayerState()} · ${Math.round(player.getCurrentTime())} / ${Math.round(player.getDuration())} seconds`; };
