@@ -59,3 +59,12 @@ bar/settings and restores only the central play button over the paused frame.
 Pointer focus no longer keeps the controls visible; keyboard focus can still
 reveal them during playback. Added a pause/resume regression test (18 checks now).
 Verified the paused appearance with real YouTube playback in Chromium.
+
+## 1.0.2 single-click pause
+
+Replaced the video-surface click handler that only toggled controller visibility
+with immediate pause. Mouse movement reveals the controller; keyboard focus still
+reveals it. Settings and transport clicks do not bubble into surface pause.
+All 19 regression checks pass. In the in-app browser, a single surface click
+changed real YouTube playback from playing to paused at 14 seconds, with only the
+central play affordance remaining.

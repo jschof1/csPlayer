@@ -332,14 +332,15 @@ controlsTimeout = setTimeout(()=>{parent.querySelector(".csPlayer-controls-box")
 
 parent.querySelector(".csPlayer-controls-box").onclick = function(e){
 if(!parent.querySelector(".csPlayer-controls-box main").contains(e.target) && !parent.querySelector(".csPlayer-controls-box .csPlayer-controls").contains(e.target) && !parent.querySelector(".csPlayer-controls-box .csPlayer-settings-box").contains(e.target)){
-if(parent.querySelector(".csPlayer-controls-box").classList.contains("csPlayer-controls-open")){
-parent.querySelector(".csPlayer-controls-box").classList.remove("csPlayer-controls-open");
-clearTimeout(controlsTimeout);
-}else{
+// A surface click pauses immediately instead of only revealing controls.
+csPlayer.pause(videoTag);
+}}
+parent.querySelector(".csPlayer-controls-box").onpointermove = function(event){
+if(event.pointerType === "touch" || !entry.isPlaying) return;
 parent.querySelector(".csPlayer-controls-box").classList.add("csPlayer-controls-open");
 clearTimeout(controlsTimeout);
 controlsTimeout = setTimeout(()=>{parent.querySelector(".csPlayer-controls-box").classList.remove("csPlayer-controls-open");},3000);
-}}}
+};
 parent.querySelector(".csPlayer-controls-box .csPlayer-controls").onclick = ()=>{
 clearTimeout(controlsTimeout);
 controlsTimeout = setTimeout(()=>{parent.querySelector(".csPlayer-controls-box").classList.remove("csPlayer-controls-open");},3000);

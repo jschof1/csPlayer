@@ -206,3 +206,27 @@ test('pause hides the controller and restores only the central play affordance',
     player.destroy();
   } finally { env.close(); }
 });
+
+test('one surface click pauses with controls hidden or visible; control clicks do not bubble into pause', async () => {
+  const env = setup();
+  try {
+    const player = createPlayer('#one', options);
+    await player.ready;
+    const controls = document.querySelector('#one .csPlayer-controls-box');
+    for (const open of [false, true]) {
+      player.play();
+      controls.classList.toggle('csPlayer-controls-open', open);
+      controls.click();
+      assert.equal(player.getPlayerState(), 'paused');
+      assert.equal(controls.style.display, 'none');
+    }
+    player.play();
+    controls.dispatchEvent(new window.MouseEvent('pointermove', { bubbles: true }));
+    assert.ok(controls.classList.contains('csPlayer-controls-open'));
+    document.querySelector('#one .settingsBtn').click();
+    assert.equal(player.getPlayerState(), 'playing');
+    document.querySelector('#one .csPlayer-play-pause-btn').click();
+    assert.equal(player.getPlayerState(), 'paused');
+    player.destroy();
+  } finally { env.close(); }
+});
