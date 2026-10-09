@@ -14,6 +14,20 @@ x = error;
 
 var csPlayer ={
 csPlayers : {},
+waitForYouTube:()=>{
+return new Promise((resolve, reject)=>{
+const deadline = Date.now() + 15000;
+function check(){
+if(typeof YT !== "undefined" && typeof YT.Player === "function"){
+resolve();
+}else if(Date.now() >= deadline){
+reject(new Error("YouTube iframe API did not load. Include https://www.youtube.com/iframe_api before initializing csPlayer."));
+}else{
+setTimeout(check,50);
+}}
+check();
+});
+},
 preSetup: (videoTag,playerTagId,defaultId)=>{
 var theme =("theme" in csPlayer.csPlayers[videoTag]["params"]) ? csPlayer.csPlayers[videoTag]["params"]["theme"] : null;
 var themeClass = theme ? "theme-"+theme : "";
@@ -22,7 +36,7 @@ var themeClass = theme ? "theme-"+theme : "";
       <div class="csPlayer ${themeClass}">
 <div class="csPlayer-container">
  <span><div></div>
- <i class="ti ti-player-play-filled csPlayer-loading"></i>
+ <i class="ti ti-player-play-filled csPlayer-loading" role="button" tabindex="0" aria-label="Play video" aria-disabled="true"></i>
  <div></div></span>
  <div id=${playerTagId}></div>
 </div>
@@ -77,8 +91,9 @@ return new Promise((resolve, reject) => {
     videoId: csPlayer.csPlayers[videoTag]["params"]["defaultId"],
     playerVars:{
      controls: 0,
-     mute: 1,
-     autoplay: 1,
+     mute: 0,
+     autoplay: 0,
+     origin: window.location.origin,
      disablekb: 1,
      color: "white",
      fs: 0,   
@@ -92,10 +107,16 @@ return new Promise((resolve, reject) => {
     events:{
      'onReady':()=>{
 if($("#"+videoTag) != null && videoTag){
-csPlayer.pauseVideoWithPromise(csPlayer.csPlayers[videoTag]["videoTag"]).then(()=>{
-       parent.querySelector(".csPlayer-container iframe").addEventListener("load",()=>{ 
-      parent.querySelector(".csPlayer-container span i").classList.remove("csPlayer-loading");
-      csPlayer.csPlayers[videoTag]["videoTag"].addEventListener('onStateChange', onPlayerStateChange);
+      // onReady is the API readiness signal; the iframe load may have already fired.
+      const startButton = parent.querySelector(".csPlayer-container span i");
+      startButton.classList.remove("csPlayer-loading");
+      startButton.setAttribute("aria-disabled","false");
+      startButton.addEventListener("click",()=>csPlayer.play(videoTag));
+      startButton.addEventListener("keydown",(event)=>{
+      if(event.key === "Enter" || event.key === " "){
+      event.preventDefault();
+      csPlayer.play(videoTag);
+      }});
       parent.querySelector(".csPlayer-controls-box main i:nth-of-type(1)").addEventListener("click", backward);
       parent.querySelector(".csPlayer-controls-box main i:nth-of-type(2)").addEventListener("click", togglePlayPause);
       parent.querySelector(".csPlayer-controls-box main i:nth-of-type(3)").addEventListener("click", forward);           
@@ -104,12 +125,14 @@ csPlayer.csPlayers[videoTag]["TextTimeInterval"] = setInterval(updateTextTime,10
       parent.querySelector(".csPlayer-controls-box .csPlayer-controls .fsBtn").addEventListener("click",toggleFullscreen);
       document.fullscreenEnabled ? parent.querySelector(".csPlayer-controls-box .csPlayer-controls .fsBtn").style.display ="block" : parent.querySelector(".csPlayer-controls-box .csPlayer-controls .fsBtn").style.display ="none";
       parent.querySelector(".csPlayer-controls-box .csPlayer-controls .settingsBtn").addEventListener("click",toggleSettings);
-      });//iframe onload
-      });
+      resolve();
+      }else{
+      reject(new Error("Player container "+videoTag+" was removed before YouTube was ready."));
       }}, //onReady
+     'onStateChange': onPlayerStateChange,
+     'onError':(event)=>reject(new Error("YouTube player error: "+event.data)),
     }
   });
-  resolve();
 }); //promise
 //backward 
 function backward(){
@@ -135,7 +158,7 @@ if(csPlayer.csPlayers[videoTag]["isPlaying"]){
 csPlayer.csPlayers[videoTag]["videoTag"].pauseVideo();
 clearTimeout(controlsTimeout);
 }else{
-csPlayer.csPlayers[videoTag]["videoTag"].playVideo();
+csPlayer.play(videoTag);
 clearTimeout(controlsTimeout);
 controlsTimeout = setTimeout(()=>{parent.querySelector(".csPlayer-controls-box").classList.remove("csPlayer-controls-open");},3000);
 }}
@@ -330,7 +353,7 @@ csPlayer.csPlayers[videoTag]["videoTag"].unloadModule("cc");
 }
     },
 init:(videoTag,params)=>{
-return new Promise((resolve, reject) => {
+return Promise.resolve().then(()=>{
     if(videoTag && params && ("defaultId" in params)){
     if($("#"+videoTag)!=null){
     if(!(videoTag in csPlayer.csPlayers)){
@@ -348,7 +371,9 @@ return new Promise((resolve, reject) => {
     }
     csPlayer.csPlayers[videoTag]["isPlaying"] = false;
     csPlayer.csPlayers[videoTag]["playerState"] ="paused";
-    csPlayer.csPlayers[videoTag]["initialized"] = false; csPlayer.preSetup(videoTag,playerTagId="csPlayer-"+videoTag,params["defaultId"]).then(()=>{
+    csPlayer.csPlayers[videoTag]["initialized"] = false;
+    const playerTagId = "csPlayer-"+videoTag;
+    return csPlayer.preSetup(videoTag,playerTagId,params["defaultId"]).then(()=>{
     var parent = document.querySelector("#"+playerTagId).closest(".csPlayer");
     if(("thumbnail" in csPlayer.csPlayers[videoTag]["params"])){
     if(csPlayer.csPlayers[videoTag]["params"]["thumbnail"] == true || csPlayer.csPlayers[videoTag]["params"]["thumbnail"] =="true"){
@@ -357,9 +382,13 @@ return new Promise((resolve, reject) => {
     parent.querySelector(".csPlayer-container span").style.backgroundImage ="none";
     }else{
     parent.querySelector(".csPlayer-container span").style.backgroundImage =`url(${csPlayer.csPlayers[videoTag]["params"]["thumbnail"]})`;
-    }} csPlayer.YtSetup(videoTag,playerTagId="csPlayer-"+videoTag,params["defaultId"]).then(()=>{
+    }}
+    return csPlayer.waitForYouTube().then(()=>csPlayer.YtSetup(videoTag,playerTagId,params["defaultId"])).then(()=>{
     csPlayer.csPlayers[videoTag]["initialized"] = true;
     console.log("Player",videoTag,"initialized.");
+    }).catch((error)=>{
+    delete csPlayer.csPlayers[videoTag];
+    throw error;
     });
     });
     }else{
@@ -369,7 +398,7 @@ return new Promise((resolve, reject) => {
     }}else{
     throw new Error("Init function must have two parameters and second parameter must have defaultId.");
     }
-resolve();});
+});
     },
     
     
@@ -386,11 +415,9 @@ pause:(videoTag)=>{
 play:(videoTag)=>{
     if(videoTag){
     if((videoTag in csPlayer.csPlayers) && csPlayer.csPlayers[videoTag]["initialized"] == true){
-    if(!csPlayer.csPlayers[videoTag]["videoTag"].isMuted()){
+    csPlayer.csPlayers[videoTag]["videoTag"].unMute();
     csPlayer.csPlayers[videoTag]["videoTag"].playVideo();
     }else{
-    throw new Error("Before calling play function, the video must be played atleat once.");
-    }}else{
     throw new Error("Player "+videoTag+" is not initialized yet.")
     }}else{
     throw new Error("play function must have player id as a parameter.")

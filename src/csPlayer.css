@@ -153,6 +153,8 @@ justify-content: center;
 pointer-events: none;
 }
 .csPlayer .csPlayer-container span i{
+pointer-events: auto;
+cursor: pointer;
 display: block;
 width: var(--startBtnSize);
 height: var(--startBtnSize);
@@ -165,6 +167,7 @@ background: var(--startBtnBg);
 font-size: calc(var(--startBtnSize)/2.5);
 }
 .csPlayer-loading{
+pointer-events: none !important;
 color: transparent !important;
 background: transparent !important;
 border: 5px solid var(--startLoaderColor) !important;

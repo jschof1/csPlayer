@@ -1,7 +1,9 @@
 # csPlayer
 A custom youtube video player, based on Javascript.
 
-See [demo](https://abtp2.github.io/csPlayer/demo/demo)
+See [demo source](demo/demo.html). To try this fork locally, run
+`python3 -m http.server 8000` from the repository and open
+`http://localhost:8000/demo/demo.html`.
 
 ## Installing
 Firstly, include YouTube iframe api script in your document.
@@ -18,8 +20,8 @@ You can use the files available above in `src` folder.
 ```
 or use them Via CDN:
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/abtp2/csPlayer/src/csPlayer.css">
-<script src="https://cdn.jsdelivr.net/gh/abtp2/csPlayer/src/csPlayer.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jschof1/csPlayer@main/src/csPlayer.css">
+<script src="https://cdn.jsdelivr.net/gh/jschof1/csPlayer@main/src/csPlayer.js"></script>
 ```
 
 ## Methods
@@ -53,11 +55,14 @@ This is the default youtube video id through which player player would be loaded
 It will take the boolean values `true or false` or also you can give url for the custom thumbnail.
 #### (iii) theme
 This will take the values of the themes available at csPlayer by default. Some of them are `youtube`,`plyr` and `default`.
-[Check available themes](https://abtp2.github.io/csPlayer/demo/demo).
+[Check available themes](demo/demo.html).
 #### (iv) loop
 This will take boolean values `true` or `false`.
 
-Also, user can use  `.then()` in init() to perform any action after initialization.
+`init()` waits for the YouTube API and resolves once the player and controls are
+ready. It rejects if the API fails to load within 15 seconds or the player reports
+an initialization error. Playback starts only after a user action; initialization
+does not autoplay. Use `.then()` to perform an action after initialization.
 ```js
 csPlayer.init("video",{
 defaultId: "RKERYQwvlFw",
@@ -87,6 +92,10 @@ This is use to play the video.
 csPlayer.play("video")
 ```
 Given parameter is the id of the element for player.
+
+Call `play()` from a user click after `init()` resolves. It works on first playback,
+including when the player is muted. Browsers may block playback without a user
+gesture. The central Play icon also supports Enter and Space.
 
 ### 4. pause()
 This is use to pause the video.
@@ -208,7 +217,13 @@ loop: false,
 ```
 
 ## Demo
-[Check demo for full customization](https://abtp2.github.io/csPlayer/demo/demo)
+[Check demo source for full customization](demo/demo.html)
+
+## Regression checks
+Run `node --test tests/playback.test.cjs` (Node.js 18+). These dependency-free
+checks simulate YouTube lifecycle events, including iframe load before `onReady`,
+delayed API loading, first playback, pause/resume, keyboard activation, and
+multiple players. Verify real YouTube playback separately in the browser demo.
 
 ## Screenshots
 ![screenshots](https://i.ibb.co/928j3QH/20241001-213604.jpg)
