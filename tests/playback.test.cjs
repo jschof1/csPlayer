@@ -112,7 +112,12 @@ function setup({ delayedApi = false, fail = false } = {}) {
     now += 50;
     entry[1].callback();
   }
-  return { context, players, init, ready, flush, tick, loadApi: () => { context.YT = yt; } };
+  return { context, players, init, ready, flush, tick, expireReady: () => {
+    const entry = [...timers].find(([, timer]) => timer.delay === 15000);
+    assert.ok(entry);
+    timers.delete(entry[0]);
+    entry[1].callback();
+  }, loadApi: () => { context.YT = yt; } };
 }
 
 test('init remains pending until YouTube reports readiness', async () => {
@@ -207,4 +212,18 @@ test('YouTube initialization errors reach init catch handlers', async () => {
   env.ready();
   await assert.rejects(promise, /YouTube player error: 100/);
   assert.equal('video' in env.context.csPlayer.csPlayers, false);
+});
+
+
+test('iframe readiness timeout destroys its player and permits retry', async () => {
+  const env = setup();
+  const { promise } = await env.init();
+  const rejected = assert.rejects(promise, /did not become ready/);
+  env.expireReady();
+  await rejected;
+  assert.equal(env.players[0].destroyed, true);
+  assert.equal('video' in env.context.csPlayer.csPlayers, false);
+  const retry = await env.init();
+  env.ready();
+  await retry.promise;
 });

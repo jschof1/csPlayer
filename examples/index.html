@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>csPlayer · integration playground</title>
+  <link rel="stylesheet" href="../dist/csPlayer.css">
+  <style>
+    body { margin: 0; background: #111318; color: #f2f3f5; font: 16px/1.6 system-ui, sans-serif; }
+    body > main { max-width: 900px; margin: 60px auto; padding: 0 24px; }
+    h1 { font-size: clamp(32px, 6vw, 58px); line-height: 1.1; letter-spacing: -.04em; margin: 12px 0; }
+    .eyebrow { color: #b6ec78; text-transform: uppercase; letter-spacing: .18em; font-size: 12px; }
+    .intro { max-width: 650px; color: #b7bbc5; }
+    #player { margin: 28px 0 20px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    button, input, select { font: inherit; padding: 8px 12px; border: 1px solid #404550; border-radius: 6px; color: inherit; background: #22262f; }
+    button { cursor: pointer; } button:disabled { opacity: .4; cursor: default; }
+    label { display: inline-flex; flex-direction: column; gap: 5px; }
+    form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 26px 0; }
+    #status { color: #b6ec78; } pre { overflow: auto; background: #1c2028; padding: 18px; border-radius: 8px; font-size: 14px; }
+    a { color: #b6ec78; }
+  </style>
+</head>
+<body>
+<main>
+  <span class="eyebrow">csPlayer / reusable component</span>
+  <h1>One player. Any project.</h1>
+  <p class="intro">The original player, packaged for JavaScript, React and plain HTML. Try playback, switch themes, or remove and remount the component.</p>
+  <form id="setup">
+    <label>YouTube video ID<input id="video-id" value="M7lc1UVf-VE" required pattern="[A-Za-z0-9_-]{11}"></label>
+    <label>Theme<select id="theme"><option>default</option><option>youtube</option><option>plyr</option></select></label>
+    <button>Mount player</button>
+  </form>
+  <div id="player"></div>
+  <div class="actions">
+    <button id="play" disabled>Play</button><button id="pause" disabled>Pause</button><button id="info" disabled>Read playback status</button><button id="destroy">Remove player</button>
+  </div>
+  <p id="status" role="status">Loading YouTube…</p>
+  <pre><code>import { createPlayer } from '@jschof1/csplayer';
+import '@jschof1/csplayer/style.css';
+
+const player = createPlayer('#player', {
+  videoId: 'M7lc1UVf-VE', theme: 'default'
+});
+await player.ready;
+// When leaving the page:
+// player.destroy();</code></pre>
+  <p><a href="../examples/plain.html">Plain HTML example</a> · <a href="../demo/demo.html">Original demo</a></p>
+</main>
+<script type="module">
+import { createPlayer } from '../dist/index.js';
+let player;
+const status = document.querySelector('#status');
+const buttons = ['play', 'pause', 'info'].map(id => document.getElementById(id));
+function mount() {
+  player?.destroy();
+  buttons.forEach(button => button.disabled = true);
+  status.textContent = 'Loading YouTube…';
+  try {
+    const current = player = createPlayer('#player', { videoId: document.querySelector('#video-id').value, theme: document.querySelector('#theme').value });
+    current.ready.then(() => {
+      if (player !== current) return;
+      buttons.forEach(button => button.disabled = false);
+      status.textContent = 'Ready. Press Play to start.';
+    }, error => { if (player === current) status.textContent = error.message; });
+  } catch (error) { status.textContent = error.message; }
+}
+document.querySelector('#setup').onsubmit = event => { event.preventDefault(); mount(); };
+document.querySelector('#play').onclick = () => player.play();
+document.querySelector('#pause').onclick = () => player.pause();
+document.querySelector('#info').onclick = () => { status.textContent = `${player.getPlayerState()} · ${Math.round(player.getCurrentTime())} / ${Math.round(player.getDuration())} seconds`; };
+document.querySelector('#destroy').onclick = () => { player?.destroy(); player = null; buttons.forEach(button => button.disabled = true); status.textContent = 'Removed. Mount again when ready.'; };
+mount();
+</script>
+</body>
+</html>

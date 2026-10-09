@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>csPlayer · no build tools</title>
+<link rel="stylesheet" href="../dist/csPlayer.css">
+<body style="max-width:800px;margin:40px auto;padding:16px;font-family:system-ui">
+<h1>Plain HTML player</h1>
+<div id="player"></div>
+<p id="status" role="status">Loading…</p>
+<script src="../dist/csPlayer.browser.js"></script>
+<script>
+const player = CSPlayer.createPlayer('#player', { videoId: 'M7lc1UVf-VE' });
+player.ready.then(() => {
+  document.getElementById('status').textContent = 'Ready. Click the player to play.';
+}).catch(error => { document.getElementById('status').textContent = error.message; });
+</script>
+</body>
+</html>

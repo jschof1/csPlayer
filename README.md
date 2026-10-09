@@ -1,229 +1,181 @@
 # csPlayer
-A custom youtube video player, based on Javascript.
 
-See [demo source](demo/demo.html). To try this fork locally, run
-`python3 -m http.server 8000` from the repository and open
-`http://localhost:8000/demo/demo.html`.
+A reusable YouTube player for **JavaScript, React and plain HTML**. The original
+player is now packaged with scoped styles, TypeScript definitions, automatic
+YouTube API loading and safe cleanup. No runtime dependencies for the JavaScript
+or HTML versions. React is an optional peer dependency.
 
-## Installing
-Firstly, include YouTube iframe api script in your document.
-```html
-<script src="https://www.youtube.com/iframe_api"></script>
-```
-Place this script before any script in head tag to load it faster.
+## Use in another project
 
-Now include `csPlayer` files in the document.
-You can use the files available above in `src` folder.
-```html
-<link rel="stylesheet" href="csPlayer.css">
-<script src="csPlayer.js"></script>
-```
-or use them Via CDN:
-```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jschof1/csPlayer@main/src/csPlayer.css">
-<script src="https://cdn.jsdelivr.net/gh/jschof1/csPlayer@main/src/csPlayer.js"></script>
+Create an installable file from this checkout:
+
+```sh
+cd /Users/jack/Documents/GitHub/csPlayer
+npm pack
 ```
 
-## Methods
-- init()
-- changeVideo()
-- play()
-- pause()
-- getDuration()
-- getCurrentTime()
-- getVideoTitle()
-- getPlayerState()
-- Initialized()
-- destroy()
+Then, from your other project's directory:
 
-### 1. init()
-This will initiate csPlayer in the document.
-```js
-csPlayer.init("video",{
-defaultId: "RKERYQwvlFw",
-thumbnail: true,
-theme: "default",
-loop: false,
-});
-```
-1st parameter is the id of the element for player element in video player is going to play. **NOTE** : This should be unique in document.
-
-2nd parameter contains various parameters, that are: 
-#### (i) defaultId
-This is the default youtube video id through which player player would be loaded, and this is mandate.
-#### (ii) thumbnail
-It will take the boolean values `true or false` or also you can give url for the custom thumbnail.
-#### (iii) theme
-This will take the values of the themes available at csPlayer by default. Some of them are `youtube`,`plyr` and `default`.
-[Check available themes](demo/demo.html).
-#### (iv) loop
-This will take boolean values `true` or `false`.
-
-`init()` waits for the YouTube API and resolves once the player and controls are
-ready. It rejects if the API fails to load within 15 seconds or the player reports
-an initialization error. Playback starts only after a user action; initialization
-does not autoplay. Use `.then()` to perform an action after initialization.
-```js
-csPlayer.init("video",{
-defaultId: "RKERYQwvlFw",
-thumbnail: true,
-theme: "default",
-loop: false,
-})
-.then(()=>{
-console.log("Player Initialized");
-})
-.catch((error)=>{
-console.log("Error", error);
-});
+```sh
+npm install /Users/jack/Documents/GitHub/csPlayer/jschof1-csplayer-1.0.0.tgz
 ```
 
-### 2. changeVideo()
-This will change the video of the current player.
-```js
-csPlayer.changeVideo("video","kJQP7kiw5Fk");
-```
-1st parameter is the id of the element for player.
-2nd parameter is the video id of the youtube video.
+This installs **only the built package**, not the repository, demos or development
+tools. Keep the tarball in the consuming project's `vendor/` directory and install
+`./vendor/jschof1-csplayer-1.0.0.tgz` if teammates or CI need to reproduce the install.
+The package is not published on the npm registry.
 
-### 3. play()
-This is use to play the video.
-```js
-csPlayer.play("video")
-```
-Given parameter is the id of the element for player.
+### React / Next.js / Vite
 
-Call `play()` from a user click after `init()` resolves. It works on first playback,
-including when the player is muted. Browsers may block playback without a user
-gesture. The central Play icon also supports Enter and Space.
+```jsx
+import { CSPlayer } from '@jschof1/csplayer/react';
+import '@jschof1/csplayer/style.css';
 
-### 4. pause()
-This is use to pause the video.
-```js
-csPlayer.pause("video")
-```
-Given parameter is the id of the element for player.
-
-### 5. getDuration()
-This will return duration of the video.
-```js
-var x = csPlayer.getDuration("video")
-console.log(x); //eg: 490
-```
-Given parameter is the id of the element for player.
-It will return duration time in seconds.
-
-### 6. getCurrentTime()
-This will return current time of the video.
-```js
-var x = csPlayer.getCurrentTime("video")
-console.log(x); //eg: 176
-```
-Given parameter is the id of the element for player.
-It will return duration time in seconds.
-
-### 7. getVideoTitle()
-This will return title of the youtube video.
-```js
-var x = csPlayer.getVideoTitle("video")
-console.log(x);
-```
-Given parameter is the id of the element for player.
-
-### 8. getPlayerState()
-This will return current state of the video i.e. `playing`,`paused`,`buffering`,`cued` or `ended`.
-```js
-var x = csPlayer.getPlayerState("video")
-console.log(x); //eg: playing
-```
-Given parameter is the id of the element for player.
-
-### 9. initialized()
-This is use to check if video is initialized or not.
-```js
-var x = csPlayer.initialized("video")
-console.log(x); //eg: true
-```
-Given parameter is the id of the element for player.
-It will return true or false.
-
-### 10. destroy()
-This is use to destroy the current player.
-```js
-csPlayer.destroy("video")
-```
-**NOTE** : It will remove the player inside the element(i.e. video) not the entire element from the document.
-
-## CSS customization
-csPlayer can be customized through css variables. This is the list of available variables.
-- --playerBg
-- --playerColor
-- --playerBR
-- --startLoaderColor
-- --startBtnSize
-- --startBtnBg
-- --startBtnIconColor
-- --playPauseIconColor
-- --forwardIconColor
-- --backwardIconColor
-- --sliderBg
-- --sliderThumbSize
-- --sliderThumbColor
-- --sliderSeekTrackColor
-- --sliderLoadedTrackColor
-- --currentTimeTextColor
-- --durationTextColor
-- --settingsBtnColor
-- --fullscreenBtnColor
-- --settingsBg
-- --settingsTextColor
-- --settingsInputIconBg
-- --settingsInputIconColor
-```css
-#video .csPlayer{
---playerBg: #000;
---playerColor: #fff;
---settingsBg: #181818:
+export default function Video() {
+  return (
+    <CSPlayer
+      videoId="M7lc1UVf-VE"
+      theme="plyr"
+      onReady={player => console.log('Ready', player.getDuration())}
+      onError={error => console.error(error)}
+    />
+  );
 }
 ```
-You can create player custom theme from it.
-**NOTE**: give these values inside `.csPlayer`
 
-## Full Example
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <script src="https://www.youtube.com/iframe_api"></script>
-    <link rel="stylesheet" href="csPlayer.css">
-    <title>csPlayer</title>
-</head>
-<body>
-<div id="video"></div>
+The component cleans up on unmount, including React Strict Mode. Changing video,
+theme, thumbnail or loop remounts the player and resets playback. Callback changes
+do not remount it. `className`, `style`, `id` and other div attributes apply to its
+outer wrapper. Initialization and later YouTube errors display an inline alert and
+call `onError`. Do not supply children or `dangerouslySetInnerHTML`.
 
-<script src="csPlayer.js"></script>
-<script>
-csPlayer.init("video",{
-defaultId: "RKERYQwvlFw",
-thumbnail: true,
-theme: "default",
-loop: false,
-})
-</script>
-</body>
-</html>
+The React entry includes `'use client'`. In Next.js, import the stylesheet from your
+app layout; use a client component when passing callback props. Importing the
+JavaScript API on a server is safe, but mounting requires a browser.
+
+### JavaScript / Vue / Svelte / other frameworks
+
+```js
+import { createPlayer } from '@jschof1/csplayer';
+import '@jschof1/csplayer/style.css';
+
+const player = createPlayer('#player', {
+  videoId: 'M7lc1UVf-VE',
+  thumbnail: true,
+  theme: 'default',
+  loop: false,
+  onError: error => console.error(error), // playback errors after readiness
+});
+
+try {
+  await player.ready;
+  // Call player.play() from a user click, not automatically here.
+} catch (error) {
+  console.error(error); // load failure, unavailable embed or cancelled mount
+}
+
+// On route change or framework unmount:
+player.destroy();
 ```
 
-## Demo
-[Check demo source for full customization](demo/demo.html)
+The target is a CSS selector or connected, empty HTMLElement, e.g.
+`<div id="player"></div>`. Each call returns an independent player. Mount from your
+framework's mounted/effect hook and call `destroy()` from its cleanup hook.
 
-## Regression checks
-Run `node --test tests/playback.test.cjs` (Node.js 18+). These dependency-free
-checks simulate YouTube lifecycle events, including iframe load before `onReady`,
-delayed API loading, first playback, pause/resume, keyboard activation, and
-multiple players. Verify real YouTube playback separately in the browser demo.
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `videoId` | required | 11-character YouTube video ID, not a full URL |
+| `thumbnail` | `true` | YouTube thumbnail, `false`, or custom image URL |
+| `theme` | `'default'` | `'default'`, `'youtube'` or `'plyr'` |
+| `loop` | `false` | Repeat when playback ends |
+| `onError` | none | Callback for YouTube errors after readiness |
 
-## Screenshots
-![screenshots](https://i.ibb.co/928j3QH/20241001-213604.jpg)
+`player.ready` resolves to the player. After readiness, use `play()`, `pause()`,
+`changeVideo(videoId)`, `getDuration()`, `getCurrentTime()`, `getVideoTitle()` and
+`getPlayerState()`. Times are seconds. `changeVideo()` loads and starts the new
+video; invoke it from a user action. `destroy()` works before readiness and is
+safe to call more than once. Destroying a pending mount rejects `ready`.
+
+### Plain HTML, without build tools
+
+Copy **the contents of `dist/`** into your project's `vendor/csplayer/` directory,
+including its `icons/` subfolder. Keep `THIRD-PARTY-NOTICES.md` with those files.
+
+```html
+<link rel="stylesheet" href="/vendor/csplayer/csPlayer.css">
+<div id="player"></div>
+<script src="/vendor/csplayer/csPlayer.browser.js"></script>
+<script>
+  const player = CSPlayer.createPlayer('#player', { videoId: 'M7lc1UVf-VE' });
+  player.ready.catch(console.error);
+</script>
+```
+
+Serve the page over HTTP(S), not `file://`. No separate YouTube script is needed.
+The bundle exposes only `window.CSPlayer`; it does not overwrite `$` or an existing
+`onYouTubeIframeAPIReady` callback. For an even smaller copy, only the browser JS,
+CSS and `icons/` are required.
+
+## Try it locally
+
+```sh
+npm ci
+npm run check
+npm run dev
+```
+
+Open **http://127.0.0.1:8000**. Try Play, Pause, playback status, all three themes,
+and Remove player → Mount player. The plain HTML example uses the standalone
+bundle; the original demo still uses the legacy source files.
+
+## Styling
+
+Styles and icon classes are scoped to `.csPlayer`; they do not reset the host
+page. The original themes are retained, and video uses its natural 16:9 frame.
+Override the CSS variables on your player:
+
+```css
+.my-video .csPlayer {
+  --playerBR: 12px;
+  --startBtnBg: #ffcc00;
+  --startBtnIconColor: #111;
+  --sliderSeekTrackColor: #ffcc00;
+}
+```
+
+See `src/csPlayer.css` for all variables. Use a container large enough for YouTube's
+[minimum embed dimensions](https://developers.google.com/youtube/iframe_api_reference#Requirements).
+
+## Behaviour and limits
+
+- Initialization does not autoplay. Browser autoplay rules still apply.
+- Mounting loads YouTube and may request a YouTube thumbnail immediately. If your
+  site gates third-party media on consent, mount only after that consent.
+- API loading and iframe readiness each have a 15-second timeout. Failed mounts
+  release their target for retry. A shared API load can finish after the last
+  player unmounts; it cannot recreate a destroyed player.
+- YouTube handles video availability, ads, restrictions and playback quality.
+  The old quality selector was removed because the iframe API no longer supports
+  quality selection. See the [official API revision history](https://developers.google.com/youtube/iframe_api_reference#Revision_History).
+- YouTube scripts, frames, media and thumbnails need to be allowed by your site's
+  content security policy. Real playback requires a network connection.
+- The original repository has no explicit license. Packaging does not change its
+  licensing; npm publication is disabled. Icon attribution is included in
+  `THIRD-PARTY-NOTICES.md`.
+
+## Maintaining the package
+
+- `src/csPlayer.js`: original ID-based playback engine, with lifecycle fixes.
+- `src/index.js`: reusable instance API and shared YouTube loader.
+- `src/react.js`: optional React lifecycle adapter.
+- `src/csPlayer.css`, `src/icons/csplayer-icons.*`: scoped styles and seven-icon font.
+- `types/`: public TypeScript contracts.
+- `scripts/build.mjs`: dependency-free generation of ESM, CommonJS and browser builds.
+- `tests/`: playback, lifecycle, packaging and React regression tests.
+
+Use Node.js 22.13+ for development dependencies. Run `npm run check` and `npm pack`
+after changes. Commit regenerated `dist/` so consumers can copy files without a
+build. The font subset is checked in; normal builds do not require Python.
+
+The [legacy API reference](docs/legacy-api.md) documents `csPlayer.init(id, options)`
+for existing users. New projects should use `createPlayer()` or `<CSPlayer />`.

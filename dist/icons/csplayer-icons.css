@@ -1,0 +1,10 @@
+/*! Tabler Icons 3.19.0, MIT. Subset for csPlayer. See THIRD-PARTY-NOTICES.md. */
+@font-face{font-family:"csplayer-icons";font-style:normal;font-weight:400;font-display:block;src:url("csplayer-icons.woff2") format("woff2")}
+.csPlayer .ti{font-family:"csplayer-icons" !important;speak:none;font-style:normal;font-weight:normal;font-variant:normal;text-transform:none;line-height:1;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.csPlayer .ti-caret-right-filled:before{content:"\fb2c"}
+.csPlayer .ti-maximize:before{content:"\eaea"}
+.csPlayer .ti-player-pause-filled:before{content:"\f690"}
+.csPlayer .ti-player-play-filled:before{content:"\f691"}
+.csPlayer .ti-rewind-backward-10:before{content:"\faba"}
+.csPlayer .ti-rewind-forward-10:before{content:"\fac2"}
+.csPlayer .ti-settings:before{content:"\eb20"}
