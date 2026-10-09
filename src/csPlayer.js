@@ -348,9 +348,17 @@ clearTimeout(controlsTimeout);
 csPlayer.csPlayers[videoTag]["isPlaying"] = false;
 csPlayer.csPlayers[videoTag]["playerState"] ="paused";
 parent.querySelector(".csPlayer-controls-box main .csPlayer-play-pause-btn").className ="ti csPlayer-play-pause-btn ti-player-play-filled";
- if(!parent.querySelector(".csPlayer-controls-box").classList.contains("csPlayer-controls-open")){
-parent.querySelector(".csPlayer-controls-box").classList.add("csPlayer-controls-open");
-}
+// Return to the single central play affordance when paused.
+const controls = parent.querySelector(".csPlayer-controls-box");
+controls.classList.remove("csPlayer-controls-open");
+controls.style.display = "none";
+parent.querySelector(".csPlayer-controls-box .csPlayer-settings-box").style.display = "none";
+const overlay = parent.querySelector(".csPlayer-container span");
+overlay.style.backgroundImage = "none";
+overlay.style.backgroundColor = "transparent";
+overlay.style.display = "flex";
+parent.querySelector(".csPlayer-container span i").classList.remove("csPlayer-loading");
+parent.querySelector(".csPlayer-container").style.pointerEvents = "auto";
 }else if(event.data == YT.PlayerState.BUFFERING){
 csPlayer.csPlayers[videoTag]["playerState"] ="buffering";
 }else if(event.data == YT.PlayerState.CUED){

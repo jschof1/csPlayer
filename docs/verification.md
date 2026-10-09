@@ -50,3 +50,12 @@ The tarball contains the built player, styles, icon subset, type declarations an
 documentation. It excludes development dependencies, test fixtures and demos.
 The plain HTML zip additionally includes a runnable example. No npm registry
 publication or client-site deployment is part of this change.
+
+## 1.0.1 appearance correction
+
+Restored the upstream wide iframe crop, which had been unintentionally replaced
+with normal-width rendering during packaging. Pause now hides the custom control
+bar/settings and restores only the central play button over the paused frame.
+Pointer focus no longer keeps the controls visible; keyboard focus can still
+reveal them during playback. Added a pause/resume regression test (18 checks now).
+Verified the paused appearance with real YouTube playback in Chromium.

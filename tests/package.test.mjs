@@ -181,3 +181,28 @@ test('post-readiness errors reach the consumer callback', async () => {
     player.destroy();
   } finally { env.close(); }
 });
+
+test('pause hides the controller and restores only the central play affordance', async () => {
+  const env = setup();
+  try {
+    const player = createPlayer('#one', options);
+    await player.ready;
+    player.play();
+    const controls = document.querySelector('#one .csPlayer-controls-box');
+    controls.classList.add('csPlayer-controls-open');
+    document.querySelector('#one .settingsBtn').click();
+    player.pause();
+    const overlay = document.querySelector('#one .csPlayer-container span');
+    assert.equal(controls.style.display, 'none');
+    assert.equal(controls.classList.contains('csPlayer-controls-open'), false);
+    assert.equal(document.querySelector('#one .csPlayer-settings-box').style.display, 'none');
+    assert.equal(overlay.style.display, 'flex');
+    assert.equal(overlay.style.backgroundImage, 'none');
+    assert.equal(overlay.style.backgroundColor, 'transparent');
+    overlay.querySelector('i').click();
+    assert.equal(player.getPlayerState(), 'playing');
+    assert.equal(overlay.style.display, 'none');
+    assert.equal(controls.style.display, 'flex');
+    player.destroy();
+  } finally { env.close(); }
+});

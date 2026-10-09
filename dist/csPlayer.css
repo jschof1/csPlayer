@@ -132,9 +132,10 @@ border: none;
 outline: none;
 }
 .csPlayer .csPlayer-container iframe{
-width: 100%;
+/* Preserve the original wide iframe crop: YouTube chrome stays outside the viewport. */
+width: 2400%;
 height: 100%;
-left: 0;
+margin-left: -1149.95%;
 border: none;
 outline: none;
 position: absolute;
@@ -415,6 +416,6 @@ border: 5px solid var(--settingsInputIconColor);
 .csPlayer [role="button"]:focus-visible, .csPlayer input:focus-visible {
   outline: 2px solid var(--playerColor); outline-offset: 3px;
 }
-.csPlayer .csPlayer-controls-box:focus-within { background: rgba(0,0,0,.5); }
-.csPlayer .csPlayer-controls-box:focus-within main { transform: translate(-50%,-50%) scale(1); }
-.csPlayer .csPlayer-controls-box:focus-within .csPlayer-controls { transform: scale(1); }
+.csPlayer .csPlayer-controls-box:has(:focus-visible) { background: rgba(0,0,0,.5); }
+.csPlayer .csPlayer-controls-box:has(:focus-visible) main { transform: translate(-50%,-50%) scale(1); }
+.csPlayer .csPlayer-controls-box:has(:focus-visible) .csPlayer-controls { transform: scale(1); }

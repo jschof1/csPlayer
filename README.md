@@ -17,12 +17,12 @@ npm pack
 Then, from your other project's directory:
 
 ```sh
-npm install /Users/jack/Documents/GitHub/csPlayer/jschof1-csplayer-1.0.0.tgz
+npm install /Users/jack/Documents/GitHub/csPlayer/jschof1-csplayer-1.0.1.tgz
 ```
 
 This installs **only the built package**, not the repository, demos or development
 tools. Keep the tarball in the consuming project's `vendor/` directory and install
-`./vendor/jschof1-csplayer-1.0.0.tgz` if teammates or CI need to reproduce the install.
+`./vendor/jschof1-csplayer-1.0.1.tgz` if teammates or CI need to reproduce the install.
 The package is not published on the npm registry.
 
 ### React / Next.js / Vite
@@ -131,7 +131,9 @@ bundle; the original demo still uses the legacy source files.
 ## Styling
 
 Styles and icon classes are scoped to `.csPlayer`; they do not reset the host
-page. The original themes are retained, and video uses its natural 16:9 frame.
+page. The original themes and wide iframe crop are retained, keeping YouTube chrome
+outside the visible player. Pausing hides the control bar and shows only the
+central play button over the paused frame.
 Override the CSS variables on your player:
 
 ```css
